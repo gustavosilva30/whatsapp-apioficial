@@ -4,6 +4,8 @@ import { ChatWindow } from './components/ChatWindow';
 import { RightPanel } from './components/RightPanel';
 import { GlobalSidebar } from './components/GlobalSidebar';
 import { Settings } from './components/Settings';
+import { Contacts } from './components/Contacts';
+import { Reports } from './components/Reports';
 import { Ticket, Message } from './types';
 import { io, Socket } from 'socket.io-client';
 
@@ -92,7 +94,7 @@ export function Dashboard() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
-  const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
+  const [currentView, setCurrentView] = useState<'chat' | 'contacts' | 'reports' | 'settings'>('chat');
 
   useEffect(() => {
     // Determine the socket URL. Port 3000 is always used in this environment.
@@ -220,6 +222,10 @@ export function Dashboard() {
             />
           )}
         </>
+      ) : currentView === 'contacts' ? (
+        <Contacts />
+      ) : currentView === 'reports' ? (
+        <Reports />
       ) : (
         <Settings />
       )}

@@ -2,8 +2,8 @@ import React from 'react';
 import { Settings, Inbox, Users, BarChart3, Package, Layers } from 'lucide-react';
 
 interface GlobalSidebarProps {
-  currentView: 'chat' | 'settings';
-  setCurrentView: (view: 'chat' | 'settings') => void;
+  currentView: 'chat' | 'contacts' | 'reports' | 'settings';
+  setCurrentView: (view: 'chat' | 'contacts' | 'reports' | 'settings') => void;
 }
 
 export function GlobalSidebar({ currentView, setCurrentView }: GlobalSidebarProps) {
@@ -19,8 +19,8 @@ export function GlobalSidebar({ currentView, setCurrentView }: GlobalSidebarProp
 
       <div className="flex flex-col gap-3 flex-1 w-full px-2">
         <NavItem icon={Inbox} active={currentView === 'chat'} onClick={() => setCurrentView('chat')} tooltip="Caixa de Entrada" />
-        <NavItem icon={Users} tooltip="Contatos CRM" />
-        <NavItem icon={BarChart3} tooltip="Relatórios e Metas" />
+        <NavItem icon={Users} active={currentView === 'contacts'} onClick={() => setCurrentView('contacts')} tooltip="Contatos CRM" />
+        <NavItem icon={BarChart3} active={currentView === 'reports'} onClick={() => setCurrentView('reports')} tooltip="Relatórios e Metas" />
       </div>
 
       <div className="mt-auto px-2 w-full">
