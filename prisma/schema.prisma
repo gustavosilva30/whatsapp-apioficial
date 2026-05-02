@@ -1,0 +1,112 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  users     User[]
+  channels  Channel[]
+  contacts  Contact[]
+  tickets   Ticket[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  email     String   @unique
+  role      Role     @default(AGENT)
+  tickets   Ticket[] // Tickets atribuídos
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  AGENT
+}
+
+model Channel {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  phoneNumberId String   @unique // ID do Número na API da Meta
+  wabaId        String   // WhatsApp Business Account ID
+  verifyToken   String   // Token para verificação do Webhook
+  accessToken   String   // System User Access Token permanente
+  createdAt     DateTime @default(now())
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  phone     String   // wa_id vindo da Meta (ex: 5511999999999)
+  tickets   Ticket[]
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, phone]) // Um contato único por número de telefone por Tenant
+}
+
+model Ticket {
+  id             String       @id @default(uuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  contactId      String
+  contact        Contact      @relation(fields: [contactId], references: [id])
+  assignedUserId String?
+  assignedUser   User?        @relation(fields: [assignedUserId], references: [id])
+  status         TicketStatus @default(OPEN)
+  messages       Message[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+model Message {
+  id        String        @id @default(uuid())
+  ticketId  String
+  ticket    Ticket        @relation(fields: [ticketId], references: [id])
+  sender    SenderType
+  type      MessageType
+  content   Json          // Armazena payload do texto ou URLs de mídia
+  metaId    String?       // ID da mensagem na Meta (wamid) para rastrear status
+  status    MessageStatus @default(SENT)
+  createdAt DateTime      @default(now())
+}
+
+enum SenderType {
+  VIRTUAL_NUMBER // Enviada pelo bot/atendente
+  CONTACT        // Enviada pelo cliente
+  SYSTEM         // Mensagens de sistema (ex: "Ticket transferido")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  TEMPLATE
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}

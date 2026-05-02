@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: saas_pg_db
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: whatsapp_saas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: saas_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  app:
+    build: .
+    container_name: saas_nodejs_app
+    restart: always
+    depends_on:
+      - db
+      - redis
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://root:password@db:5432/whatsapp_saas?schema=public
+      - REDIS_URL=redis://redis:6379
+      - META_VERIFY_TOKEN=MEU_TOKEN_SECRETO_123
+    ports:
+      - "3000:3000"
+    # IMPORTANTE: O Worker do BullMQ está sendo inicializado junto com o app principal
+    # no arquivo `server.ts`. Em ambientes de altíssimo tráfego, recomenda-se isolar 
+    # o Worker em um container "worker" separado que apenas escute o Redis, para 
+    # não competir por recursos de CPU/Memória com o tráfego HTTP/WebSockets da api.
+    # Exemplo: command: npm run worker (se criado em um script isolado).
+
+volumes:
+  pgdata:
