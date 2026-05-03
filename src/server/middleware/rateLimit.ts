@@ -18,7 +18,7 @@ export const generalLimiter = rateLimit({
   max: 100, // 100 requests per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { ip: false }, // Disable IPv6 validation for local dev
+  validate: false, // Disable IPv6 validation for local dev
   keyGenerator: ipKeyGenerator,
   store: new MemoryStore(),
   handler: (req: Request, res: Response) => {
@@ -40,7 +40,7 @@ export const authLimiter = rateLimit({
   max: 5, // 5 attempts per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { ip: false }, // Disable IPv6 validation for local dev
+  validate: false, // Disable IPv6 validation for local dev
   keyGenerator: (req: Request) => {
     const ip = req.ip || req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || 'unknown';
     const email = req.body?.email || 'unknown';
@@ -62,7 +62,7 @@ export const apiKeyLimiter = rateLimit({
   max: 60, // 60 requests per minute per API key
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { ip: false },
+  validate: false,
   keyGenerator: (req: Request) => {
     const apiKey = req.headers['x-api-key'] as string || 'unknown';
     return apiKey;
@@ -83,7 +83,7 @@ export const webhookLimiter = rateLimit({
   max: 1000, // 1000 requests per minute
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { ip: false }, // Disable IPv6 validation for local dev
+  validate: false, // Disable IPv6 validation for local dev
   keyGenerator: (req: Request) => {
     // Rate limit by phoneNumberId from payload
     const phoneNumberId = req.body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
@@ -105,7 +105,7 @@ export const tenantLimiter = rateLimit({
   max: 30, // 30 requests per minute per tenant
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { ip: false },
+  validate: false,
   keyGenerator: (req: Request) => {
     const tenantId = (req as any).user?.tenantId || 'anonymous';
     return tenantId;
