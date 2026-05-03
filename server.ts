@@ -29,6 +29,11 @@ async function bootstrap() {
   const corsOrigin = process.env.CORS_ORIGIN || 'https://whatsapp-apioficial.vercel.app';
   const allowedOrigins = corsOrigin.split(',').map(o => o.trim());
 
+  // Healthcheck imediato (antes de qualquer middleware pesado)
+  app.get('/', (req, res) => res.json({ status: 'ok' }));
+  app.get('/healthz', (req, res) => res.json({ status: 'ok' }));
+  app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
   // Middleware básicos - CORS aberto para diagnóstico
   app.use(cors({
     origin: true,
