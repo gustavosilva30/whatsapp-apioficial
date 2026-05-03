@@ -29,13 +29,15 @@ async function bootstrap() {
   const corsOrigin = process.env.CORS_ORIGIN || 'https://whatsapp-apioficial.vercel.app';
   const allowedOrigins = corsOrigin.split(',').map(o => o.trim());
 
-  // Middleware básicos
+  // Middleware básicos - CORS aberto para diagnóstico
   app.use(cors({
-    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
   }));
+  // Responde preflight OPTIONS imediatamente
+  app.options('*', cors());
   app.use(express.json()); // Necessário para parsear Webhooks e payloads do Gateway
 
   // Request Logging (Winston)
