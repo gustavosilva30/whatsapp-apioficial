@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -25,18 +26,20 @@ async function bootstrap() {
   app.set('trust proxy', 1);
   const PORT = process.env.PORT || 3000;
 
+  const corsOrigin = process.env.CORS_ORIGIN || 'https://whatsapp-apioficial.vercel.app';
+
   // Middleware básicos
   app.use(cors({
-    origin: 'https://whatsapp-apioficial.vercel.app', // O endereço exato da sua Vercel
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
   }));
   app.use(express.json()); // Necessário para parsear Webhooks e payloads do Gateway
-  
+
   // Request Logging (Winston)
   app.use(requestLogger);
-  
+
   // Rate Limiting
   app.use('/api/', generalLimiter);        // General API rate limiting
   app.use('/api/v1/auth/login', authLimiter); // Strict rate limit for login
@@ -44,11 +47,11 @@ async function bootstrap() {
 
   // Servidor HTTP anexado ao Express para suportar WebSockets
   const httpServer = createServer(app);
-  
+
   // Real-Time System (Socket.io)
   const io = new SocketIOServer(httpServer, {
-    cors: { 
-      origin: process.env.CORS_ORIGIN || '*', 
+    cors: {
+      origin: corsOrigin,
       methods: ['GET', 'POST'],
       credentials: true
     }
