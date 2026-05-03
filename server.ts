@@ -28,9 +28,20 @@ async function bootstrap() {
 
   const corsOrigin = process.env.CORS_ORIGIN || 'https://whatsapp-apioficial.vercel.app';
 
+  const allowedOrigins = corsOrigin.split(',').map(o => o.trim());
+
   // Middleware básicos
   app.use(cors({
-    origin: corsOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, etc)
+      if (!origin) return callback(null, true);
+      // Allow any vercel.app preview URL for the same project
+      const isVercelPreview = /^https:\/\/whatsapp-apioficial[a-z0-9-]*\.vercel\.app$/.test(origin);
+      if (isVercelPreview || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
@@ -51,7 +62,14 @@ async function bootstrap() {
   // Real-Time System (Socket.io)
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: corsOrigin,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const isVercelPreview = /^https:\/\/whatsapp-apioficial[a-z0-9-]*\.vercel\.app$/.test(origin);
+        if (isVercelPreview || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        callback(new Error(`CORS: origin ${origin} not allowed`));
+      },
       methods: ['GET', 'POST'],
       credentials: true
     }

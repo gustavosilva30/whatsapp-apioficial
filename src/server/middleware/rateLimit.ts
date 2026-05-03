@@ -62,6 +62,7 @@ export const apiKeyLimiter = rateLimit({
   max: 60, // 60 requests per minute per API key
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { ip: false },
   keyGenerator: (req: Request) => {
     const apiKey = req.headers['x-api-key'] as string || 'unknown';
     return apiKey;
@@ -104,6 +105,7 @@ export const tenantLimiter = rateLimit({
   max: 30, // 30 requests per minute per tenant
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { ip: false },
   keyGenerator: (req: Request) => {
     const tenantId = (req as any).user?.tenantId || 'anonymous';
     return tenantId;
