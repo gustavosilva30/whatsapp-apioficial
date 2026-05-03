@@ -14,6 +14,8 @@ try {
     connectTimeout: 3000,
     maxRetriesPerRequest: 2,
   });
+  // Suppress error events
+  redisConnection.on('error', () => { /* Ignore connection errors */ });
   // Test connection
   redisConnection.connect().then(() => {
     console.log('[Webhooks] Redis connected, using BullMQ queue');

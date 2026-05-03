@@ -5,8 +5,9 @@ import { Request, Response } from 'express';
 // For production with multiple instances, use a Redis-backed store
 
 // Generate key based on IP and tenant (if authenticated)
-const generateKey = (req: Request): string => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+// Using req.ip and x-forwarded-for for more robust proxy support (Vercel)
+const ipKeyGenerator = (req: Request): string => {
+  const ip = req.ip || req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || 'unknown';
   const tenantId = (req as any).user?.tenantId || 'anonymous';
   return `${ip}:${tenantId}`;
 };
@@ -17,7 +18,8 @@ export const generalLimiter = rateLimit({
   max: 100, // 100 requests per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: generateKey,
+  validate: { ip: false }, // Disable IPv6 validation for local dev
+  keyGenerator: ipKeyGenerator,
   store: new MemoryStore(),
   handler: (req: Request, res: Response) => {
     res.status(429).json({
@@ -38,8 +40,9 @@ export const authLimiter = rateLimit({
   max: 5, // 5 attempts per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { ip: false }, // Disable IPv6 validation for local dev
   keyGenerator: (req: Request) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const ip = req.ip || req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || 'unknown';
     const email = req.body?.email || 'unknown';
     return `${ip}:${email}`;
   },
@@ -79,10 +82,12 @@ export const webhookLimiter = rateLimit({
   max: 1000, // 1000 requests per minute
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { ip: false }, // Disable IPv6 validation for local dev
   keyGenerator: (req: Request) => {
     // Rate limit by phoneNumberId from payload
     const phoneNumberId = req.body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
-    return phoneNumberId || (req.ip || 'unknown');
+    const ip = req.ip || req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || 'unknown';
+    return phoneNumberId || ip;
   },
   store: new MemoryStore(),
   handler: (req: Request, res: Response) => {

@@ -22,10 +22,16 @@ const __dirname = path.dirname(__filename);
 
 async function bootstrap() {
   const app = express();
+  app.set('trust proxy', 1);
   const PORT = process.env.PORT || 3000;
 
   // Middleware básicos
-  app.use(cors());
+  app.use(cors({
+    origin: 'https://whatsapp-apioficial.vercel.app', // O endereço exato da sua Vercel
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  }));
   app.use(express.json()); // Necessário para parsear Webhooks e payloads do Gateway
   
   // Request Logging (Winston)

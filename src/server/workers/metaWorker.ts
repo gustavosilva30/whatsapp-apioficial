@@ -15,6 +15,8 @@ try {
     lazyConnect: true,
     connectTimeout: 3000,
   });
+  // Suppress error events
+  redisConnection.on('error', () => { /* Ignore connection errors */ });
   // Test connection
   redisConnection.connect().then(() => {
     redisAvailable = true;

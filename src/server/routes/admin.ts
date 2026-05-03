@@ -15,7 +15,8 @@ try {
     lazyConnect: true,
     connectTimeout: 5000,
   });
-  // Don't await connection - let it connect lazily
+  // Suppress connection errors - we'll handle them in the health check
+  redis.on('error', () => { /* Silently ignore connection errors */ });
 } catch {
   console.warn('[Admin] Redis not available for health checks');
   redis = null;
