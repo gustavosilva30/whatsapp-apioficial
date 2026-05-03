@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network=host",
+        "mcp/postgres",
+        "postgres://postgres:Dourados1000@crm-loja_db-whatsapp:5432/crm-loja"
+      ]
+    }
+  }
+}

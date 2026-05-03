@@ -6,8 +6,10 @@ import { GlobalSidebar } from './components/GlobalSidebar';
 import { Settings } from './components/Settings';
 import { Contacts } from './components/Contacts';
 import { Reports } from './components/Reports';
+import UserMenu from './components/UserMenu';
 import { Ticket, Message } from './types';
 import { io, Socket } from 'socket.io-client';
+import { useAuth } from './context/AuthContext';
 
 // Detailed Mock Data based on an auto parts / junkyard scenario
 const MOCK_TICKETS: Ticket[] = [
@@ -191,12 +193,31 @@ export function Dashboard() {
 
   const selectedTicket = tickets.find(t => t.id === selectedTicketId) || null;
 
+  const { user } = useAuth();
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 font-sans antialiased text-gray-800">
       <GlobalSidebar currentView={currentView} setCurrentView={setCurrentView} />
       
+      {/* Top Header */}
+      <div className="absolute top-0 left-16 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-10">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">
+            {currentView === 'chat' && 'Conversas'}
+            {currentView === 'contacts' && 'Contatos'}
+            {currentView === 'reports' && 'Relatórios'}
+            {currentView === 'settings' && 'Configurações'}
+          </h1>
+          <p className="text-sm text-gray-500">
+            {user?.tenantName}
+          </p>
+        </div>
+        <UserMenu />
+      </div>
+      
+      <div className="flex-1 pt-16">
       {currentView === 'chat' ? (
-        <>
+        <div className="flex h-full">
           {isSidebarOpen && (
             <Sidebar 
               tickets={tickets} 
@@ -221,7 +242,7 @@ export function Dashboard() {
               ticket={selectedTicket} 
             />
           )}
-        </>
+        </div>
       ) : currentView === 'contacts' ? (
         <Contacts />
       ) : currentView === 'reports' ? (
@@ -229,6 +250,7 @@ export function Dashboard() {
       ) : (
         <Settings />
       )}
+      </div>
     </div>
   );
 }

@@ -3,17 +3,40 @@ import IORedis from 'ioredis';
 import { Server as SocketIOServer } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
 
-const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
-});
-
 const prisma = new PrismaClient();
+
+// Redis connection (optional for development)
+let redisConnection: IORedis | null = null;
+let redisAvailable = false;
+
+try {
+  redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    maxRetriesPerRequest: null,
+    lazyConnect: true,
+    connectTimeout: 3000,
+  });
+  // Test connection
+  redisConnection.connect().then(() => {
+    redisAvailable = true;
+    console.log('[Worker] Redis connected');
+  }).catch(() => {
+    console.log('[Worker] Redis unavailable - worker not started');
+    redisConnection = null;
+  });
+} catch {
+  console.log('[Worker] Redis not configured - worker not started');
+}
 
 /**
  * ETAPA 2: O Consumidor (Worker do BullMQ)
  * Escuta fila 'meta-webhook-queue', processa payloads, salva DB e dispara WebSockets.
  */
 export function startMetaWorker(io: SocketIOServer) {
+  if (!redisConnection || !redisAvailable) {
+    console.log('[Worker] BullMQ worker not started (Redis unavailable) - webhooks will be logged but not processed');
+    return null;
+  }
+
   const worker = new Worker('meta-webhook-queue', async (job: Job) => {
     console.log(`[Worker] Processando Job ${job.id}`);
     const body = job.data;
@@ -77,7 +100,7 @@ export function startMetaWorker(io: SocketIOServer) {
         // Roteamento por Coexistência: Identifica qual atendente é dono deste número
         // Busca na tabela Channel através do phoneNumberId fornecido pelo payload da Meta.
         const channel = await prisma.channel.findUnique({
-          where: { metaPhoneNumberId: phoneNumberId },
+          where: { phoneNumberId: phoneNumberId },
           include: { user: true } // Inclui o atendente dono (User)
         });
 
@@ -95,8 +118,7 @@ export function startMetaWorker(io: SocketIOServer) {
         // const ticket = await prisma.ticket.findFirst({ ... })
         const mockTicketId = 'ticket-456';
 
-        // Dispara WebSocket apenas na room do Atendente específico dono desse canal, garantindo isolamento total
-        io.to(`agent-${agentId}`).emit('meta_new_message', {
+        const messageData = {
           ticketId: mockTicketId,
           message: {
             id: messageId,
@@ -104,8 +126,18 @@ export function startMetaWorker(io: SocketIOServer) {
             sender: 'CONTACT',
             type: extractedType,
             createdAt: new Date().toISOString()
-          }
-        });
+          },
+          tenantId,
+          agentId
+        };
+
+        // Emit to agent-specific room (direct notification to assigned agent)
+        io.to(`agent:${agentId}`).emit('meta_new_message', messageData);
+        
+        // Also emit to tenant room (for supervisors/dashboards)
+        io.to(`tenant:${tenantId}`).emit('meta_new_message', messageData);
+        
+        console.log(`[Worker] Message emitted to agent:${agentId} and tenant:${tenantId}`);
       }
 
       // ---- B. Tratamento de Status (Sent, Delivered, Read, Failed) ----
@@ -126,11 +158,18 @@ export function startMetaWorker(io: SocketIOServer) {
         // await prisma.message.update({ where: { metaId: messageId }, data: { status: statusString.toUpperCase() }});
 
         if (channel && channel.userId) {
-          // Notifica especificamente o atendente via WebSocket que a mensagem foi entregue/lida
-          io.to(`agent-${channel.userId}`).emit('meta_message_status', {
+          const statusData = {
             messageId: messageId,
-            status: statusString.toUpperCase()
-          });
+            status: statusString.toUpperCase(),
+            tenantId: channel.tenantId,
+            agentId: channel.userId
+          };
+          
+          // Notifica especificamente o atendente via WebSocket que a mensagem foi entregue/lida
+          io.to(`agent:${channel.userId}`).emit('meta_message_status', statusData);
+          
+          // Also emit to tenant room for dashboards/supervisors
+          io.to(`tenant:${channel.tenantId}`).emit('meta_message_status', statusData);
         }
       }
 

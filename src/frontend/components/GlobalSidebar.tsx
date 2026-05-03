@@ -1,5 +1,7 @@
 import React from 'react';
-import { Settings, Inbox, Users, BarChart3, Package, Layers } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Settings, Inbox, Users, BarChart3, Package, Layers, Shield } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface GlobalSidebarProps {
   currentView: 'chat' | 'contacts' | 'reports' | 'settings';
@@ -7,6 +9,9 @@ interface GlobalSidebarProps {
 }
 
 export function GlobalSidebar({ currentView, setCurrentView }: GlobalSidebarProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
   return (
     <div className="w-[72px] bg-slate-900 h-full flex flex-col items-center py-5 border-r border-slate-800 shrink-0 z-20 shadow-xl">
       <div 
@@ -21,6 +26,16 @@ export function GlobalSidebar({ currentView, setCurrentView }: GlobalSidebarProp
         <NavItem icon={Inbox} active={currentView === 'chat'} onClick={() => setCurrentView('chat')} tooltip="Caixa de Entrada" />
         <NavItem icon={Users} active={currentView === 'contacts'} onClick={() => setCurrentView('contacts')} tooltip="Contatos CRM" />
         <NavItem icon={BarChart3} active={currentView === 'reports'} onClick={() => setCurrentView('reports')} tooltip="Relatórios e Metas" />
+        
+        {/* Admin Link - Only visible for ADMIN users */}
+        {user?.role === 'ADMIN' && (
+          <NavItem 
+            icon={Shield} 
+            active={false} 
+            onClick={() => navigate('/admin')} 
+            tooltip="Admin Dashboard" 
+          />
+        )}
       </div>
 
       <div className="mt-auto px-2 w-full">

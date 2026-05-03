@@ -1,0 +1,40 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network=host",
+        "mcp/postgres",
+        "postgres://postgres:Dourados1000@crm-loja_db-whatsapp:5432/crm-loja?sslmode=disable"
+      ]
+    },
+    "redis": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network=host",
+        "mcp/redis",
+        "redis://default:w5q38zychxrhx1qtzeix@crm-loja_redis-whatsapp:6379"
+      ]
+    },
+    "ssh": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network=host",
+        "mcp/ssh",
+        "ssh://root:217.216.65.15"
+      ],
+      "env": {
+        "SSH_PASSWORD": "Dourados1000"
+      }
+    }
+  }
+}

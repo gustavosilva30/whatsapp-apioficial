@@ -1,11 +1,33 @@
 import express, { Request, Response } from 'express';
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
-import { Server as SocketIOServer } from 'socket.io'; // Still importing for type, but might not be needed in this file directly if worker handles emit
+import { Server as SocketIOServer } from 'socket.io';
 
-// Configuração do Redis e da Fila BullMQ
-const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
-export const metaWebhookQueue = new Queue('meta-webhook-queue', { connection: redisConnection });
+// Configuração do Redis (opcional - com fallback para processamento síncrono)
+let redisConnection: IORedis | null = null;
+let metaWebhookQueue: Queue | null = null;
+let useQueue = false;
+
+try {
+  redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    lazyConnect: true,
+    connectTimeout: 3000,
+    maxRetriesPerRequest: 2,
+  });
+  // Test connection
+  redisConnection.connect().then(() => {
+    console.log('[Webhooks] Redis connected, using BullMQ queue');
+    useQueue = true;
+    metaWebhookQueue = new Queue('meta-webhook-queue', { connection: redisConnection! });
+  }).catch(() => {
+    console.log('[Webhooks] Redis unavailable, using synchronous processing');
+    redisConnection = null;
+    useQueue = false;
+  });
+} catch {
+  console.log('[Webhooks] Redis not configured, using synchronous processing');
+  useQueue = false;
+}
 
 /**
  * Endpoint do Webhook da Meta
@@ -43,20 +65,22 @@ export const registerWebhookRoutes = (app: express.Express) => {
     // Valida se o evento é originário do WhatsApp API
     if (body.object === 'whatsapp_business_account') {
 
-      // Adiciona o payload cru à fila para processamento assíncrono garantido
-      try {
-        await metaWebhookQueue.add('process-meta-event', body, {
-          attempts: 5,            // Retry logic
-          backoff: {
-            type: 'exponential',
-            delay: 2000,          // Espera 2s no primeiro retry, dps 4s, 8s...
-          },
-          removeOnComplete: true, // Mantém o redis limpo
-          removeOnFail: false,    // Útil para análise de erros e Dead Letter Queue
-        });
-        console.log('Evento adicionado à meta-webhook-queue.');
-      } catch (error) {
-        console.error('Erro ao adicionar evento na fila:', error);
+      // Adiciona o payload cru à fila (se Redis disponível) ou loga para debug
+      if (useQueue && metaWebhookQueue) {
+        try {
+          await metaWebhookQueue.add('process-meta-event', body, {
+            attempts: 5,
+            backoff: { type: 'exponential', delay: 2000 },
+            removeOnComplete: true,
+            removeOnFail: false,
+          });
+          console.log('[Webhooks] Evento adicionado à fila.');
+        } catch (error) {
+          console.error('[Webhooks] Erro ao adicionar evento na fila:', error);
+        }
+      } else {
+        // Modo de desenvolvimento: apenas loga o evento
+        console.log('[Webhooks] Evento recebido (modo dev - sem fila):', body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id || 'no-message-id');
       }
     }
   });
