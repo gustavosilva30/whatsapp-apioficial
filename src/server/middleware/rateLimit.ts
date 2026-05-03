@@ -1,25 +1,26 @@
 import rateLimit, { MemoryStore } from 'express-rate-limit';
 import { Request, Response } from 'express';
 
-// Using MemoryStore for rate limiting (sufficient for single-instance)
-// For production with multiple instances, use a Redis-backed store
-
-// Generate key based on IP and tenant (if authenticated)
-// Using req.ip and x-forwarded-for for more robust proxy support (Vercel)
-const ipKeyGenerator = (req: Request): string => {
-  const ip = req.ip || req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || 'unknown';
-  const tenantId = (req as any).user?.tenantId || 'anonymous';
-  return `${ip}:${tenantId}`;
+// Gets the client IP without triggering express-rate-limit IPv6 validation warning
+const getIp = (req: Request): string => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
+    return ip.trim();
+  }
+  return req.socket?.remoteAddress || 'unknown';
 };
 
 // General API Rate Limiter
 export const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per 15 minutes
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: false, // Disable IPv6 validation for local dev
-  keyGenerator: ipKeyGenerator,
+  keyGenerator: (req: Request) => {
+    const tenantId = (req as any).user?.tenantId || 'anonymous';
+    return `${getIp(req)}:${tenantId}`;
+  },
   store: new MemoryStore(),
   handler: (req: Request, res: Response) => {
     res.status(429).json({
@@ -28,23 +29,18 @@ export const generalLimiter = rateLimit({
       retryAfter: Math.ceil(15 * 60)
     });
   },
-  skip: (req: Request) => {
-    // Skip rate limiting for health checks and webhooks
-    return req.path === '/api/health' || req.path.startsWith('/webhook');
-  }
+  skip: (req: Request) => req.path === '/api/health' || req.path.startsWith('/webhook'),
 });
 
 // Strict Rate Limiter for authentication endpoints
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per 15 minutes
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: false, // Disable IPv6 validation for local dev
   keyGenerator: (req: Request) => {
-    const ip = req.ip || req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || 'unknown';
     const email = req.body?.email || 'unknown';
-    return `${ip}:${email}`;
+    return `${getIp(req)}:${email}`;
   },
   store: new MemoryStore(),
   handler: (req: Request, res: Response) => {
@@ -58,14 +54,12 @@ export const authLimiter = rateLimit({
 
 // API Key Rate Limiter for external gateway
 export const apiKeyLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 60, // 60 requests per minute per API key
+  windowMs: 60 * 1000,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: false,
   keyGenerator: (req: Request) => {
-    const apiKey = req.headers['x-api-key'] as string || 'unknown';
-    return apiKey;
+    return (req.headers['x-api-key'] as string) || 'unknown';
   },
   store: new MemoryStore(),
   handler: (req: Request, res: Response) => {
@@ -79,16 +73,13 @@ export const apiKeyLimiter = rateLimit({
 
 // Webhook Rate Limiter (higher limit for Meta webhooks)
 export const webhookLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 1000, // 1000 requests per minute
+  windowMs: 60 * 1000,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: false, // Disable IPv6 validation for local dev
   keyGenerator: (req: Request) => {
-    // Rate limit by phoneNumberId from payload
     const phoneNumberId = req.body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
-    const ip = req.ip || req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || 'unknown';
-    return phoneNumberId || ip;
+    return phoneNumberId || getIp(req);
   },
   store: new MemoryStore(),
   handler: (req: Request, res: Response) => {
@@ -99,16 +90,14 @@ export const webhookLimiter = rateLimit({
   }
 });
 
-// Tenant-specific rate limiter for resource-heavy operations
+// Tenant-specific rate limiter
 export const tenantLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute per tenant
+  windowMs: 60 * 1000,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: false,
   keyGenerator: (req: Request) => {
-    const tenantId = (req as any).user?.tenantId || 'anonymous';
-    return tenantId;
+    return (req as any).user?.tenantId || 'anonymous';
   },
   store: new MemoryStore(),
   handler: (req: Request, res: Response) => {
